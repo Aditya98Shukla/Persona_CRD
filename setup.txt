@@ -1,0 +1,213 @@
+1. This is the config file to install go. You may have to export path again.
+
+----------------------
+
+controlplane ~ ➜  cat >> config.sh
+sudo apt update && sudo apt install make build-essential
+
+echo 'Installing Go 1.19'
+
+sleep 2
+
+export VERSION=1.19
+
+curl  -L https://golang.org/dl/go${VERSION}.linux-amd64.tar.gz -o go${VERSION}.linux-amd64.tar.gz
+
+tar -xzf go${VERSION}.linux-amd64.tar.gz -C /usr/local
+
+export PATH=$PATH:/usr/local/go/bin
+
+go version
+
+^C
+
+-----------------------
+
+2. Run config bash file. Make sure to press Y when prompted.
+
+-----------------------
+
+controlplane ~ ➜ bash config.sh
+
+-----------------------
+
+3. You will notice these lines confirming the fact that go is installed. Export the path and find version.
+
+-----------------------
+Installing Go 1.19
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+100    78  100    78    0     0   2689      0 --:--:-- --:--:-- --:--:--  2689
+100    73  100    73    0     0    281      0 --:--:-- --:--:-- --:--:--   281
+100  141M  100  141M    0     0   145M      0 --:--:-- --:--:-- --:--:--  276M
+go version go1.19 linux/amd64
+
+controlplane ~ ➜  export PATH=$PATH:/usr/local/go/bin
+
+controlplane ~ ➜  go version
+go version go1.19 linux/amd64
+-----------------------
+
+4. Export the gopath variable and prepare the structure. 
+
+-----------------------
+controlplane ~ ➜  export GOPATH=~/go
+
+controlplane ~ ➜  mkdir -p go/bin go/pkg go/src
+
+controlplane ~ ➜  cd go/src
+-----------------------
+
+5. Create the directory as shown below
+
+-----------------------
+
+controlplane ~/go/src ➜  mkdir -p Persona_CRD/pkg/apis/compute/v2
+
+controlplane ~/go/src ➜  cd Persona_CRD/pkg/apis/compute
+
+-----------------------
+
+6. Create the file register.go in this location "Persona_CRD/pkg/apis/compute".
+
+-----------------------
+controlplane pkg/apis/compute ➜  cat register.go
+
+package comp
+
+const (
+        GroupName = "compute.genesis.msys.com"
+)
+-----------------------
+
+This means as per go "comp" is the name of package "Persona_CRD/pkg/apis/compute".
+
+7. Now enter in v2 directory and create 3 files doc.go, types.go and register.go.
+
+-----------------------
+controlplane apis/compute/v2 on  setup via 🐹 v1.19 ➜  cat doc.go
+// +k8s:deepcopy-gen=package,register
+
+// Package v2 is the v2 version of the API.
+// +groupName=compute.genesis.msys.com
+package v2
+-----------------------
+
+This is the same groupName i am using in "Persona_CRD/pkg/apis/compute/register.go". 
+As per go "v2" is the name of package "Persona_CRD/pkg/apis/compute/v2".
+
+8. Please look for other files as shown in the following link.
+
+types.go -> https://github.com/Aditya98Shukla/Persona_CRD/blob/main/pkg/apis/compute/v2/types.go
+
+register.go -> https://github.com/Aditya98Shukla/Persona_CRD/blob/main/pkg/apis/compute/v2/register.go
+
+9. In types.go, You will notice certain comments with '+'. That are actually ANNOTATIONS and VERY IMP.
+
+10. Now that is all we need to have regarding our new kind Persona.
+
+11. Go back to Project root folder.
+
+------------------------
+controlplane apis/compute/v2 via 🐹 v1.19 ➜  cd ../../../../
+
+controlplane go/src/Persona_CRD ➜ 
+------------------------
+
+12. Try to get these 2 repos. You are likely to fail.
+
+------------------------
+controlplane go/src/Persona_CRD ➜  go get k8s.io/code-generator k8s.io/gengo/...
+go: go.mod file not found in current directory or any parent directory.
+        'go get' is no longer supported outside a module.
+        To build and install a command, use 'go install' with a version,
+        like 'go install example.com/cmd@latest'
+        For more information, see https://golang.org/doc/go-get-install-deprecation
+        or run 'go help get' or 'go help install'.
+------------------------
+
+13. Turn off the GO111MODULE var and Fetch the 2 repos again. It should pass this time.
+
+------------------------
+controlplane go/src/Persona_CRD ➜  export GO111MODULE=off
+
+controlplane go/src/Persona_CRD ➜  go get k8s.io/code-generator k8s.io/gengo/...
+------------------------
+
+14.  The ./... is a wildcard that tells the go get command to operate on all packages 
+in the current directory and its subdirectories. 
+
+------------------------
+controlplane go/src/Persona_CRD ➜  go get ./...
+# Persona_CRD/pkg/apis/compute/v2
+pkg/apis/compute/v2/register.go:36:3: cannot use &Persona{} (value of type *Persona) as type runtime.Object in argument to scheme.AddKnownTypes:
+        *Persona does not implement runtime.Object (missing DeepCopyObject method)
+pkg/apis/compute/v2/register.go:37:3: cannot use &PersonaList{} (value of type *PersonaList) as type runtime.Object in argument to scheme.AddKnownTypes:
+        *PersonaList does not implement runtime.Object (missing DeepCopyObject method)
+
+controlplane go/src/Persona_CRD ✖
+------------------------
+
+15. No Issue if you are observing the same warning shown above. We have already mentioned this
+
+annotation in 2 lines of types.go to tackle this message.
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+16. List out the pkg dir. It will have only apis dir.
+
+------------------------
+
+controlplane go/src/Persona_CRD ➜ ls pkg
+apis
+
+------------------------
+
+17. Now execute the most important file as shown below.
+
+------------------------
+
+controlplane go/src/Persona_CRD ➜  bash ~/go/src/k8s.io/code-generator/generate-groups.sh all 
+				    Persona_CRD/pkg/client Persona_CRD/pkg/apis compute:v2 
+				    --go-header-file ~/go/src/k8s.io/code-generator/examples/hack/boilerplate.go.txt
+
+------------------------
+
+17a. The First lines execute the bash file with all option that is an alias for 
+"applyconfiguration,client,deepcopy,informer,lister".
+
+17b. The Paths in Second line are relative with respect to GOPATH variable. "compute:v2" represents to look
+for compute/v2 folder within Persona_CRD/pkg/apis.
+
+17c. The Third line depicts the location of header file.
+
+18. This will be the output of above command.
+
+------------------------
+package Persona_CRD/pkg/apis/compute/v2 is not in GOROOT (/usr/local/go/src/Persona_CRD/pkg/apis/compute/v2)
+Generating deepcopy funcs
+Generating apply configuration for compute:v2 at Persona_CRD/pkg/client/applyconfiguration
+Generating clientset for compute:v2 at Persona_CRD/pkg/client/clientset
+Generating listers for compute:v2 at Persona_CRD/pkg/client/listers
+Generating informers for compute:v2 at Persona_CRD/pkg/client/informers 
+------------------------
+
+19. Finally Evwerthing is generated as it is shown below.
+
+------------------------
+controlplane go/src/Persona_CRD ➜  ls -la pkg/client
+total 24
+drwxr-xr-x 6 root root 4096 Nov 21 02:11 .
+drwxr-xr-x 4 root root 4096 Nov 21 02:11 ..
+drwxr-xr-x 4 root root 4096 Nov 21 02:11 applyconfiguration
+drwxr-xr-x 3 root root 4096 Nov 21 02:11 clientset
+drwxr-xr-x 3 root root 4096 Nov 21 02:11 informers
+drwxr-xr-x 3 root root 4096 Nov 21 02:11 listers
+
+controlplane go/src/Persona_CRD ➜  date
+Tue 21 Nov 2023 02:11:38 AM EST
+------------------------ 
+
+This is the location of all the generated files and that is what we mentioned in the 17b step.
+
+20. That is all needs to be done.
